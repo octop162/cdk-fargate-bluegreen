@@ -14,7 +14,8 @@ class NetworkStack(Stack):
         # 基本のVPCを作成
         vpc = ec2.Vpc(self, "Vpc",
                     cidr="10.0.0.0/16",
-                    max_azs=1,
+                    nat_gateways=1,
+                    max_azs=2,
                     subnet_configuration=[
                         ec2.SubnetConfiguration(
                             subnet_type=ec2.SubnetType.PUBLIC,
@@ -30,3 +31,6 @@ class NetworkStack(Stack):
                     
         )
         Tags.of(vpc).add("Name", "Vpc")
+
+        # 外部向けに公開
+        self.vpc = vpc
