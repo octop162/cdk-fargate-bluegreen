@@ -1,11 +1,10 @@
-#!/usr/bin/env python3
-
 import aws_cdk as cdk
 
-from cdk_fargate_bluegreen.cdk_fargate_bluegreen_stack import CdkFargateBluegreenStack
+from network.network_stack import NetworkStack
+from app.app_stack import AppStack
 
 
 app = cdk.App()
-CdkFargateBluegreenStack(app, "cdk-fargate-bluegreen")
+NetworkStack(app, "network-stack")
 
 app.synth()
