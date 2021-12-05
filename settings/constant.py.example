@@ -1,0 +1,9 @@
+from aws_cdk import Environment
+
+class Constant:
+    # 環境依存
+    ACCOUNT_ENV = Environment(account="", region="ap-northeast-1")
+    VPC_ID = ""
+    REPOSITORY_NAME = ""
+    # 環境非依存
+    IAM_BLUEGREEN_DEPLOYMENT_SERVICE_ROLE_NAME = "BlueGreenDeploymentRole"

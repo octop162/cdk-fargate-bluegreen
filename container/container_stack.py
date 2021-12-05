@@ -8,7 +8,6 @@ from aws_cdk import (
     CfnCodeDeployBlueGreenApplicationTarget,
     CfnCodeDeployBlueGreenEcsAttributes,
     CfnCodeDeployBlueGreenHook,
-    CfnCodeDeployBlueGreenLifecycleEventHooks,
     CfnTrafficRoutingConfig,
     CfnTrafficRoutingTimeBasedCanary,
     CfnTrafficRoutingType,
@@ -21,21 +20,31 @@ from aws_cdk import (
     aws_ecr as ecr,
     aws_ecs as ecs,
 )
+from settings.constant import Constant
 
 
 class ContainerStack(Stack):
 
     def __init__(
-            self, scope: Construct, construct_id: str,
-            vpc: ec2.Vpc,
-            ecr_repo: ecr.Repository, **kwargs) -> None:
+            self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         '''
-        ロードバランサ 
+        リソース取得
         '''
+        vpc = ec2.Vpc.from_lookup(self, 'Vpc',
+                                  vpc_id=Constant.VPC_ID
+                                  )
+        ecr_repo = ecr.Repository.from_repository_name(
+            self,
+            "Repository",
+            repository_name=Constant.REPOSITORY_NAME,
+        )
 
-        # ロードバランサ
+        '''
+        ロードバランサ
+        '''
+        # ロードバランサ本体
         alb = elbv2.ApplicationLoadBalancer(
             self,
             "ApplicationLoadBalancer",
@@ -55,7 +64,7 @@ class ContainerStack(Stack):
             health_check=elbv2.HealthCheck(
                 enabled=True,
                 interval=Duration.seconds(30),
-                path= '/',
+                path='/',
                 protocol=elbv2.Protocol.HTTP,
                 healthy_http_codes='200',
                 healthy_threshold_count=2,
@@ -74,7 +83,7 @@ class ContainerStack(Stack):
             health_check=elbv2.HealthCheck(
                 enabled=True,
                 interval=Duration.seconds(30),
-                path= '/',
+                path='/',
                 protocol=elbv2.Protocol.HTTP,
                 healthy_http_codes='200',
                 healthy_threshold_count=2,
@@ -88,7 +97,7 @@ class ContainerStack(Stack):
             "MainListener",
             port=80,
             open=True,
-            default_action= elbv2.ListenerAction.weighted_forward(
+            default_action=elbv2.ListenerAction.weighted_forward(
                 [
                     elbv2.WeightedTargetGroup(
                         target_group=target_group1,
@@ -101,7 +110,7 @@ class ContainerStack(Stack):
             "TestListener",
             port=8080,
             open=True,
-            default_action= elbv2.ListenerAction.weighted_forward(
+            default_action=elbv2.ListenerAction.weighted_forward(
                 [
                     elbv2.WeightedTargetGroup(
                         target_group=target_group1,
@@ -114,11 +123,10 @@ class ContainerStack(Stack):
         '''
         ECS
         '''
-
         # ECSクラスタ
         cluster = ecs.Cluster(self, "Cluster", vpc=vpc, cluster_name='Cluster')
-
-        service_security_group = ec2.SecurityGroup(self, 'ServiceSecurtyGroup', 
+        service_security_group = ec2.SecurityGroup(
+            self, 'ServiceSecurtyGroup',
             vpc=vpc,
         )
         service_security_group.connections.allow_from(
@@ -178,7 +186,8 @@ class ContainerStack(Stack):
             ],
             network_configuration=ecs.CfnTaskSet.NetworkConfigurationProperty(
                 aws_vpc_configuration=ecs.CfnTaskSet.AwsVpcConfigurationProperty(
-                    subnets=vpc.select_subnets(subnet_type=ec2.SubnetType.PRIVATE_WITH_NAT).subnet_ids,
+                    subnets=vpc.select_subnets(
+                        subnet_type=ec2.SubnetType.PRIVATE_WITH_NAT).subnet_ids,
                     assign_public_ip="DISABLED",
                     security_groups=[
                         service_security_group.security_group_id,
@@ -198,7 +207,8 @@ class ContainerStack(Stack):
         Blue Greenデプロイメント
         '''
         self.add_transform('AWS::CodeDeployBlueGreen')
-        task_definition_logical_id = self.get_logical_id(task_definition.node.default_child)
+        task_definition_logical_id = self.get_logical_id(
+            task_definition.node.default_child)
         task_set_logical_id = self.get_logical_id(task_set)
         CfnCodeDeployBlueGreenHook(
             self, "CodeDeployBlueGreenHook",
@@ -212,10 +222,7 @@ class ContainerStack(Stack):
             additional_options=CfnCodeDeployBlueGreenAdditionalOptions(
                 termination_wait_time_in_minutes=30,
             ),
-            lifecycle_event_hooks=CfnCodeDeployBlueGreenLifecycleEventHooks(
-                after_allow_test_traffic='CodeDeployHook_ContainerStack-pre-traffic-hook'
-            ),
-            service_role='CodeDeployHookRole_ContainerStack',
+            service_role=Constant.IAM_BLUEGREEN_DEPLOYMENT_SERVICE_ROLE_NAME,
             applications=[
                 CfnCodeDeployBlueGreenApplication(
                     target=CfnCodeDeployBlueGreenApplicationTarget(
@@ -234,15 +241,19 @@ class ContainerStack(Stack):
                         traffic_routing=CfnTrafficRouting(
                             prod_traffic_route=CfnTrafficRoute(
                                 type=elbv2.CfnListener.CFN_RESOURCE_TYPE_NAME,
-                                logical_id=self.get_logical_id(main_listener.node.default_child),
+                                logical_id=self.get_logical_id(
+                                    main_listener.node.default_child),
                             ),
                             test_traffic_route=CfnTrafficRoute(
                                 type=elbv2.CfnListener.CFN_RESOURCE_TYPE_NAME,
-                                logical_id=self.get_logical_id(test_listener.node.default_child),
+                                logical_id=self.get_logical_id(
+                                    test_listener.node.default_child),
                             ),
                             target_groups=[
-                                self.get_logical_id(target_group1.node.default_child),
-                                self.get_logical_id(target_group2.node.default_child),
+                                self.get_logical_id(
+                                    target_group1.node.default_child),
+                                self.get_logical_id(
+                                    target_group2.node.default_child),
                             ]
                         )
                     )

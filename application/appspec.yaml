@@ -1,0 +1,9 @@
+version: 0.0
+Resources:
+  - TargetService:
+      Type: AWS::ECS::Service
+      Properties:
+        TaskDefinition: "arn:aws:ecs:ap-northeast-1:595135303684:task-definition/containerstackTaskDef04800D57"
+        LoadBalancerInfo:
+          ContainerName: web
+          ContainerPort: 80

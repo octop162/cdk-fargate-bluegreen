@@ -1,5 +1,6 @@
 from constructs import Construct
 from aws_cdk import (
+    CfnOutput,
     Tags,
     Stack,
     aws_ec2 as ec2
@@ -31,6 +32,4 @@ class NetworkStack(Stack):
                     
         )
         Tags.of(vpc).add("Name", "Vpc")
-
-        # 外部向けに公開
-        self.vpc = vpc
+        CfnOutput(self, 'VpcId', value=vpc.vpc_id)
